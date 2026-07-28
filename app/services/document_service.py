@@ -30,6 +30,10 @@ async def extract_text(file_path: str, file_type: str) -> str:
     ft = file_type.lower().strip()
     content_bytes: bytes | None = None
     
+    # Strip leading /uploads/ prefix from paths stored by older save_file
+    if file_path.startswith("/uploads/"):
+        file_path = file_path[len("/uploads/"):]
+    
     # 1. Retrieve the file content
     if file_path.startswith("http://") or file_path.startswith("https://"):
         try:

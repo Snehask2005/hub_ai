@@ -127,4 +127,11 @@ docker compose up --build
 
 Once running, access the interactive Swagger API documentation at:
 - **API Docs:** [http://localhost:8003/docs](http://localhost:8003/docs)
+- **OpenAPI Spec:** [http://localhost:8003/openapi.json](http://localhost:8003/openapi.json)
+
+### Authentication
+If `AI_API_KEY` is configured in `.env`, include the header in your HTTP requests:
+```http
+X-AI-API-Key: your_secret_api_key
+```
 - **Health Check:** [http://localhost:8003/openapi.json](http://localhost:8003/openapi.json)

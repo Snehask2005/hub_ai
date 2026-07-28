@@ -94,6 +94,7 @@ async def summarize_text(text: str) -> str:
                 f"{text}"
             ),
             "stream": False,
+            "think": False,
         },
     )
     resp.raise_for_status()
