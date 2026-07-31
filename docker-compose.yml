@@ -3,11 +3,24 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    # Shares your Linux host's network directly.
-    # This allows the container to connect to "localhost" on your device directly.
+    container_name: cixiohub_ai
     network_mode: "host"
     volumes:
-      # Mount codebase for local hot-reloads during development
       - .:/app
+      # Persist HuggingFace model cache across container restarts
+      - hf_cache:/app/.hf_cache
     env_file:
       - .env
+    environment:
+      - OLLAMA_BASE_URL=http://localhost:11434
+      - QDRANT_URL=http://localhost:6333
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8003/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  hf_cache:

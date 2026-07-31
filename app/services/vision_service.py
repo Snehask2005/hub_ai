@@ -44,6 +44,25 @@ def process_and_compress_image(image_bytes: bytes, max_size: int = 960) -> bytes
         return image_bytes
 
 
+def _fetch_bytes_sync(url: str, timeout: float = 30.0) -> bytes:
+    import httpx
+    try:
+        resp = httpx.get(url, timeout=timeout)
+        resp.raise_for_status()
+        return resp.content
+    except Exception as first_exc:
+        alt_url = None
+        if "host.docker.internal" in url:
+            alt_url = url.replace("host.docker.internal", "localhost")
+        elif "localhost" in url:
+            alt_url = url.replace("localhost", "host.docker.internal")
+        if alt_url:
+            resp = httpx.get(alt_url, timeout=timeout)
+            resp.raise_for_status()
+            return resp.content
+        raise first_exc
+
+
 def extract_visuals_from_pdf(pdf_path: str) -> list[dict]:
     """
     Extract embedded images and render pages with low text density as layout images.
@@ -52,7 +71,11 @@ def extract_visuals_from_pdf(pdf_path: str) -> list[dict]:
     """
     visuals: list[dict] = []
     try:
-        doc = fitz.open(pdf_path)
+        if pdf_path.startswith("http://") or pdf_path.startswith("https://"):
+            pdf_bytes = _fetch_bytes_sync(pdf_path)
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        else:
+            doc = fitz.open(pdf_path)
     except Exception as exc:
         logger.error("Failed to open PDF %s for image extraction: %s", pdf_path, exc)
         return []
@@ -169,7 +192,11 @@ async def reinspect_page(pdf_path: str, page_number: int, specific_question: str
     """
     print(f"\n[Vision AI] Re-inspecting page {page_number} of PDF '{pdf_path}' for question: '{specific_question}'...")
     try:
-        doc = fitz.open(pdf_path)
+        if pdf_path.startswith("http://") or pdf_path.startswith("https://"):
+            pdf_bytes = _fetch_bytes_sync(pdf_path)
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        else:
+            doc = fitz.open(pdf_path)
         # page_number is 1-indexed
         page = doc[page_number - 1]
 

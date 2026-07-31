@@ -2,136 +2,101 @@
 
 This is the standalone FastAPI microservice for CixioHub that handles AI/ML tasks including LLM chat streaming, document processing, vision RAG, vector embedding generation, and web search integrations.
 
-## Features
-- **FastAPI** microservice on port `8003`
-- **Ollama Integration** for local LLM inference and embeddings
-- **Qdrant Vector Database** integration for vector storage and semantic search
-- **Vision RAG & PDF Processing** using PyMuPDF and vision models
-- **Reranking Support** via `sentence-transformers` / HuggingFace models
+---
+
+## 🚀 Choose Your Setup Method
+
+You can run `hub_ai` in **two ways**:
+- **[Option A: Docker Compose Setup](#option-a-docker-compose-setup)** (Runs `hub_ai` inside Docker container on port `8003`)
+- **[Option B: Native Localhost Setup](#option-b-native-localhost-setup-without-docker)** (Runs `hub_ai` natively via Python `uvicorn` on port `8003`)
 
 ---
 
-## Prerequisites
-- **Python 3.10+**
-- **Ollama** (Required for LLMs and embedding generation)
-- **Qdrant** (Required for vector storage)
+## Prerequisites (Both Options)
+
+1. **Ollama** running on your device ([ollama.com](https://ollama.com)):
+   ```bash
+   ollama serve
+   ```
+2. **Pull Required Models:**
+   ```bash
+   ollama pull nomic-embed-text
+   ollama pull qwen3.5:4b
+   ollama pull qwen3-vl:2b
+   ```
+3. **CixioHub Backend (`hub_backend`)** running on port `8000`:
+   ```bash
+   cd ../hub_backend && docker compose up -d
+   ```
 
 ---
 
-## Setup & Running Instructions
+## Option A: Docker Compose Setup
 
-### 1. Navigate to the Directory
+Runs `hub_ai` inside a container using host networking mode on Linux.
+
+### 1. Configure `.env`
 ```bash
 cd hub_ai
+cp .env.example .env
 ```
-
-### 2. Create and Activate Virtual Environment
-
-* **Linux / macOS:**
-  ```bash
-  python3 -m venv .venv
-  source .venv/bin/activate
-  ```
-
-* **Windows (Command Prompt):**
-  ```cmd
-  python -m venv .venv
-  .venv\Scripts\activate.bat
-  ```
-
-* **Windows (PowerShell):**
-  ```powershell
-  python -m venv .venv
-  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
-  .\.venv\Scripts\Activate.ps1
-  ```
-
----
-
-### 3. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-
----
-
-### 4. Configure Environment Variables
-Copy `.env.example` to `.env`:
-
-* **Linux / macOS:**
-  ```bash
-  cp .env.example .env
-  ```
-
-* **Windows (CMD / PowerShell):**
-  ```cmd
-  copy .env.example .env
-  ```
-
-Ensure your `.env` has the correct service URLs:
+Ensure your `.env` contains:
 ```env
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.2:3b
+OLLAMA_MODEL=qwen3.5:4b
 OLLAMA_EMBED_MODEL=nomic-embed-text
 OLLAMA_VISION_MODEL=qwen3-vl:2b
 QDRANT_URL=http://localhost:6333
 QDRANT_COLLECTION=user_documents
+ENABLE_VISION_RAG=True
+AI_API_KEY=1234
 ```
 
----
-
-### 5. Start Dependent Local Services
-
-Make sure Ollama and Qdrant are running:
-
-1. **Ollama:**
-   ```bash
-   ollama serve
-   ```
-   *Pull required models:*
-   ```bash
-   ollama pull llama3.2:3b
-   ollama pull nomic-embed-text
-   ollama pull qwen3-vl:2b
-   ```
-
-2. **Qdrant (via Docker):**
-   ```bash
-   docker run -d --name local-qdrant -p 6333:6333 -p 6334:6334 -v qdrant_storage:/qdrant/storage qdrant/qdrant
-   ```
-
----
-
-### 6. Start the AI Microservice
-
-Run the Uvicorn development server on port **8003**:
-
-* **Linux / macOS / Windows:**
-  ```bash
-  uvicorn app.main:app --port 8003 --reload
-  ```
-
----
-
-## Alternative Setup: Using Docker
-
-To run the AI service using Docker Compose:
-
+### 2. Start Service via Docker Compose
 ```bash
-docker compose up --build
+docker compose up -d --build
+```
+
+### 3. View Logs
+```bash
+docker compose logs -f ai-service
 ```
 
 ---
 
-## API Documentation & Verification
+## Option B: Native Localhost Setup (Without Docker)
 
-Once running, access the interactive Swagger API documentation at:
-- **API Docs:** [http://localhost:8003/docs](http://localhost:8003/docs)
-- **OpenAPI Spec:** [http://localhost:8003/openapi.json](http://localhost:8003/openapi.json)
+Run `hub_ai` directly using Python and `uvicorn`.
 
-### Authentication
-If `AI_API_KEY` is configured in `.env`, include the header in your HTTP requests:
-```http
-X-AI-API-Key: your_secret_api_key
+### 1. Create Virtual Environment & Install Dependencies
+```bash
+cd hub_ai
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
-- **Health Check:** [http://localhost:8003/openapi.json](http://localhost:8003/openapi.json)
+
+### 2. Configure `.env`
+```bash
+cp .env.example .env
+```
+Set identical environment settings as Option A above.
+
+### 3. Start AI Server
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8003 --reload
+```
+
+---
+
+## 🔗 API Documentation & Verification
+
+Once running (Docker or Localhost):
+- **Interactive Swagger Docs:** [http://localhost:8003/docs](http://localhost:8003/docs)
+- **Health Check:** [http://localhost:8003/health](http://localhost:8003/health)
+
+### Authentication Header
+Requests sent from `hub_backend` include the authentication header:
+```http
+X-AI-API-Key: 1234
+```
