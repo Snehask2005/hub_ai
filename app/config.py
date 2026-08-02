@@ -23,9 +23,14 @@ class Settings(BaseSettings):
     enable_reranker: bool = False
     reranker_model: str = "mixedbread-ai/mxbai-rerank-base-v1"
     reranker_device: str = "cuda"
+    hf_hub_offline: bool = False
     ai_service_url: str = "http://localhost:8003"
     ai_api_key: str | None = None
 
 
-
 settings = Settings()
+
+if settings.hf_hub_offline:
+    import os
+    os.environ["HF_HUB_OFFLINE"] = "1"
+

@@ -7,8 +7,8 @@ This is the standalone FastAPI microservice for CixioHub that handles AI/ML task
 ## 🚀 Choose Your Setup Method
 
 You can run `hub_ai` in **two ways**:
-- **[Option A: Docker Compose Setup](#option-a-docker-compose-setup)** (Runs `hub_ai` inside Docker container on port `8003`)
-- **[Option B: Native Localhost Setup](#option-b-native-localhost-setup-without-docker)** (Runs `hub_ai` natively via Python `uvicorn` on port `8003`)
+- **[Option 1: Docker Compose Setup](#option-1-docker-compose-setup)** (Runs `hub_ai` inside Docker container on port `8003`)
+- **[Option 2: Native Localhost Setup](#option-2-native-localhost-setup-without-docker)** (Runs `hub_ai` natively via Python `uvicorn` on port `8003`)
 
 ---
 
@@ -24,14 +24,11 @@ You can run `hub_ai` in **two ways**:
    ollama pull qwen3.5:4b
    ollama pull qwen3-vl:2b
    ```
-3. **CixioHub Backend (`hub_backend`)** running on port `8000`:
-   ```bash
-   cd ../hub_backend && docker compose up -d
-   ```
+3. **CixioHub Backend (`hub_backend`)** running on port `8000`.
 
 ---
 
-## Option A: Docker Compose Setup
+## Option 1: Docker Compose Setup
 
 Runs `hub_ai` inside a container using host networking mode on Linux.
 
@@ -64,9 +61,9 @@ docker compose logs -f ai-service
 
 ---
 
-## Option B: Native Localhost Setup (Without Docker)
+## Option 2: Native Localhost Setup (Without Docker)
 
-Run `hub_ai` directly using Python and `uvicorn`.
+Run `hub_ai` natively using Python and `uvicorn` on your host machine.
 
 ### 1. Create Virtual Environment & Install Dependencies
 ```bash
@@ -76,13 +73,37 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Configure `.env`
+### 2. Configure `.env` for Localhost
 ```bash
 cp .env.example .env
 ```
-Set identical environment settings as Option A above.
+Ensure your `.env` contains:
+```env
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=qwen3.5:4b
+OLLAMA_EMBED_MODEL=nomic-embed-text
+OLLAMA_VISION_MODEL=qwen3-vl:2b
+QDRANT_URL=http://localhost:6333
+QDRANT_COLLECTION=user_documents
+ENABLE_VISION_RAG=True
+AI_API_KEY=1234
 
-### 3. Start AI Server
+# Reranker Configuration
+ENABLE_RERANKER=True
+RERANKER_MODEL=mixedbread-ai/mxbai-rerank-base-v1
+RERANKER_DEVICE=cpu   # Set to 'cuda' if NVIDIA GPU with PyTorch CUDA is installed
+```
+
+### 3. Setup & Download Reranker Model (Non-Docker)
+When running natively without Docker, `sentence_transformers` accesses your host internet and caches models directly in `~/.cache/huggingface/`.
+
+- **Automatic Download:** On the first search request requiring reranking, `mixedbread-ai/mxbai-rerank-base-v1` will automatically download from Hugging Face to `~/.cache/huggingface/`.
+- **Optional Pre-download Step:** To avoid first-query latency, pre-download the model ahead of time:
+  ```bash
+  python3 -c "from sentence_transformers import CrossEncoder; CrossEncoder('mixedbread-ai/mxbai-rerank-base-v1')"
+  ```
+
+### 4. Start AI Server
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8003 --reload
 ```

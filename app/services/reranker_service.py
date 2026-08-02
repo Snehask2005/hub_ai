@@ -12,27 +12,63 @@ _model_device: str | None = None
 def get_reranker_model(device: str | None = None) -> CrossEncoder:
     """Lazy loads and caches the CrossEncoder model in memory."""
     global _model, _model_device
-    target_device = device if device is not None else settings.reranker_device
+    requested_device = device if device is not None else settings.reranker_device
+    
+    import torch
+    if requested_device in ("cuda", "gpu"):
+        if not torch.cuda.is_available():
+            logger.info("CUDA requested for reranker, but CUDA GPU is not available. Falling back to 'cpu'.")
+            target_device = "cpu"
+        else:
+            try:
+                free_bytes, _ = torch.cuda.mem_get_info()
+                # Require at least 400 MB of free VRAM to load and predict on GPU
+                if free_bytes < 400 * 1024 * 1024:
+                    logger.warning(
+                        f"CUDA GPU has insufficient free VRAM ({free_bytes / (1024*1024):.1f} MB free). "
+                        "Falling back to 'cpu'."
+                    )
+                    target_device = "cpu"
+                else:
+                    target_device = requested_device
+            except Exception:
+                target_device = requested_device
+    else:
+        target_device = requested_device
     
     if _model is None or _model_device != target_device:
         model_name = settings.reranker_model
         logger.info(f"Initializing Cross-Encoder model {model_name} on device {target_device}...")
+        local_only = getattr(settings, "hf_hub_offline", False)
         try:
-            _model = CrossEncoder(model_name, device=target_device)
+            _model = CrossEncoder(model_name, device=target_device, local_files_only=local_only)
             _model_device = target_device
             logger.info(f"Cross-Encoder model {model_name} loaded successfully on {target_device}.")
         except Exception as exc:
+            if not local_only:
+                try:
+                    logger.info(f"Attempting to load {model_name} from local cache...")
+                    _model = CrossEncoder(model_name, device=target_device, local_files_only=True)
+                    _model_device = target_device
+                    logger.info(f"Cross-Encoder model loaded from local cache on {target_device}.")
+                    return _model
+                except Exception:
+                    pass
+
             if target_device != "cpu":
                 logger.warning(
                     f"Failed to load Cross-Encoder on device {target_device}: {exc}. "
                     f"Attempting automatic fallback to 'cpu'..."
                 )
-                import torch
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
                 
-                _model = CrossEncoder(model_name, device="cpu")
+                try:
+                    _model = CrossEncoder(model_name, device="cpu", local_files_only=local_only)
+                except Exception:
+                    _model = CrossEncoder(model_name, device="cpu", local_files_only=True)
                 _model_device = "cpu"
+                settings.reranker_device = "cpu"
                 logger.info(f"Cross-Encoder model {model_name} loaded successfully on cpu (fallback).")
             else:
                 raise exc
@@ -55,7 +91,8 @@ def _predict_sync(query: str, passages: List[str]) -> List[float]:
         )
         try:
             _model = None
-            _model_device = None
+            _model_device = "cpu"
+            settings.reranker_device = "cpu"
             import torch
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
